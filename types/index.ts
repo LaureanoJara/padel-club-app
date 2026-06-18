@@ -9,11 +9,13 @@ export interface Cancha {
 export interface Reserva {
   id: string;
   cancha_id: string;
-  usuario_id: string;
+  usuario_id: string | null;
   fecha: string;
   hora_inicio: string;
   hora_fin: string;
   estado: "pendiente" | "confirmada" | "cancelada";
+  reserva_manual: boolean;
+  nombre_visitante: string | null;
   created_at: string;
 }
 

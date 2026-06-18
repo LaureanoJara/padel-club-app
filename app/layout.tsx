@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import Link from "next/link";
 import "./globals.css";
-import { getSession, signOut } from "@/lib/auth";
+import { getSessionWithRol, signOut } from "@/lib/auth";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -24,7 +24,7 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const user = await getSession();
+  const { user, rol } = await getSessionWithRol();
   const nombre =
     user?.user_metadata?.nombre ||
     user?.email?.split("@")[0] ||
@@ -58,6 +58,14 @@ export default async function RootLayout({
                   >
                     Mis Reservas
                   </Link>
+                  {rol === "admin" && (
+                    <Link
+                      href="/admin"
+                      className="hover:text-blue-200 transition-colors"
+                    >
+                      Panel Admin
+                    </Link>
+                  )}
                   <span className="text-blue-200 hidden sm:inline">
                     Hola, {nombre}
                   </span>

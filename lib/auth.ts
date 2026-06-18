@@ -93,3 +93,16 @@ export async function getSession() {
   } = await supabase.auth.getUser();
   return user;
 }
+
+export async function getSessionWithRol() {
+  const user = await getSession();
+  if (!user) return { user: null, rol: null };
+
+  const { data } = await supabaseAdmin
+    .from("perfiles")
+    .select("rol")
+    .eq("id", user.id)
+    .single();
+
+  return { user, rol: (data?.rol ?? null) as "admin" | "socio" | null };
+}
