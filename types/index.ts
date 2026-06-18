@@ -1,0 +1,26 @@
+export interface Cancha {
+  id: string;
+  nombre: string;
+  descripcion: string;
+  activa: boolean;
+  created_at: string;
+}
+
+export interface Reserva {
+  id: string;
+  cancha_id: string;
+  usuario_id: string;
+  fecha: string;
+  hora_inicio: string;
+  hora_fin: string;
+  estado: "pendiente" | "confirmada" | "cancelada";
+  created_at: string;
+}
+
+export interface Perfil {
+  id: string;
+  nombre: string;
+  telefono: string;
+  rol: "admin" | "jugador";
+  created_at: string;
+}
