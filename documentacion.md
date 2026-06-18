@@ -1,7 +1,7 @@
-# 🎾 Padel Club App — Documentación del Proyecto
+cla# 🎾 Padel Club App — Documentación del Proyecto
 
 > Documento vivo: se actualiza en cada sesión de desarrollo.  
-> Última actualización: 17 de junio de 2026
+> Última actualización: 17 de junio de 2026 — Sesión 1 completada
 
 ---
 
@@ -102,15 +102,22 @@ padel-club-app/
 
 ## 🗺️ Roadmap por Fases
 
-### ✅ Fase 0 — Setup (EN CURSO)
+### ✅ Fase 0 — Setup (COMPLETADA)
 - [x] Crear repositorio en GitHub
-- [x] Instalar Claude Code
-- [ ] Inicializar proyecto Next.js
-- [ ] Crear proyecto en Supabase
-- [ ] Configurar variables de entorno
+- [x] Instalar Claude Code (instalador nativo Windows vía PowerShell)
+- [x] Inicializar proyecto Next.js con TypeScript y Tailwind
+- [x] Crear proyecto en Supabase (región São Paulo)
+- [x] Instalar dependencias: @supabase/supabase-js @supabase/ssr
+- [x] Configurar variables de entorno (.env.local)
+- [x] Crear cliente Supabase en lib/supabase.ts
+- [x] Crear tipos TypeScript en types/index.ts
+- [x] Crear tablas en Supabase (canchas, reservas, perfiles)
+- [x] Cargar datos de prueba (2 canchas)
+- [x] Página de inicio funcionando en localhost:3000
+- [x] Código subido a GitHub
 - [ ] Primer deploy en Vercel
 
-### 🔲 Fase 1 — MVP de Reservas
+### 🔄 Fase 1 — MVP de Reservas (PRÓXIMA)
 - [ ] Autenticación (registro e inicio de sesión)
 - [ ] Ver canchas disponibles por fecha y hora
 - [ ] Crear una reserva
@@ -173,22 +180,35 @@ git push origin main
 ## 📋 Registro de Sesiones de Desarrollo
 
 ### Sesión 1 — 17 de junio de 2026
-**Objetivos:** Setup inicial del proyecto  
+**Objetivos:** Setup completo del proyecto (Fase 0)
+
 **Completado:**
-- Definición del stack tecnológico
+- Definición del stack tecnológico completo
 - Creación del repositorio en GitHub
-- Instalación de Claude Code en Windows vía PowerShell
+- Instalación de Claude Code en Windows vía PowerShell (instalador nativo)
 - Configuración de Claude Code en VS Code
+- Proyecto Next.js 14 inicializado con TypeScript y Tailwind CSS
+- Proyecto Supabase creado (región São Paulo, más cercana a Argentina)
+- Dependencias instaladas: `@supabase/supabase-js` y `@supabase/ssr`
+- Cliente Supabase configurado en `lib/supabase.ts`
+- Tipos TypeScript creados en `types/index.ts` (Cancha, Reserva, Perfil)
+- Navbar básico en `app/layout.tsx`
+- Página de inicio con diseño azul, hero section y cards de features
+- Tablas creadas en Supabase via SQL Editor: `canchas`, `reservas`, `perfiles`
+- 2 canchas de prueba cargadas en la base de datos
+- Git configurado y código subido a GitHub
 
 **Pendiente para próxima sesión:**
-- Inicializar proyecto Next.js (`npx create-next-app@latest`)
-- Crear proyecto en Supabase
-- Configurar variables de entorno
-- Estructura base de carpetas y archivos
+- Deploy en Vercel (opcional, puede hacerse después)
+- Autenticación: registro e inicio de sesión de usuarios
+- Página de canchas disponibles con selector de fecha/hora
+- Flujo completo de reserva
 
-**Notas:**
-- Error inicial: paquete npm incorrecto (`@anthropic/claude-code` → correcto: instalador nativo de Windows)
-- Se optó por el instalador nativo de Anthropic para Windows (más estable y con auto-updates)
+**Notas y decisiones tomadas:**
+- Error inicial de instalación: paquete `@anthropic/claude-code` no existe → solución: instalador nativo de Windows (`irm https://claude.ai/install.ps1 | iex`)
+- Se eligió Supabase sobre backend propio para arrancar rápido. Si un cliente exige servidores propios en el futuro, se puede migrar a Supabase self-hosted o PostgreSQL propio sin cambiar el frontend
+- URL de Supabase va SIN `/rest/v1/` al final en el `.env.local`
+- El paste en terminal de VS Code se hace con clic derecho → Paste (no Ctrl+V)
 
 ---
 
