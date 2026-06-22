@@ -15,7 +15,7 @@ export interface Reserva {
   fecha: string;
   hora_inicio: string;
   hora_fin: string;
-  estado: "pendiente" | "confirmada" | "cancelada";
+  estado: "pendiente" | "confirmada" | "cancelada" | "vencida";
   reserva_manual: boolean;
   nombre_visitante: string | null;
   created_at: string;

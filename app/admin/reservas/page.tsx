@@ -11,19 +11,21 @@ import CanchaColorBadge from "@/components/CanchaColorBadge";
 
 const estadoBadge: Record<string, string> = {
   confirmada: "bg-green-100 text-green-700",
-  pendiente: "bg-yellow-100 text-yellow-700",
-  cancelada: "bg-gray-100 text-gray-500",
+  pendiente:  "bg-yellow-100 text-yellow-700",
+  cancelada:  "bg-gray-100 text-gray-500",
+  vencida:    "bg-gray-100 text-gray-400",
 };
 
 export default async function AdminReservasPage({
   searchParams,
 }: {
-  searchParams: Promise<{ fecha?: string; cancha_id?: string }>;
+  searchParams: Promise<{ fecha?: string; cancha_id?: string; historial?: string }>;
 }) {
-  const { fecha, cancha_id } = await searchParams;
+  const { fecha, cancha_id, historial } = await searchParams;
+  const incluirHistorial = historial === "1";
 
   const [reservas, canchas] = await Promise.all([
-    getTodasLasReservas(fecha, cancha_id),
+    getTodasLasReservas(fecha, cancha_id, incluirHistorial),
     getCanchas(),
   ]);
 
@@ -41,6 +43,11 @@ export default async function AdminReservasPage({
           <p className="text-gray-500 mt-1">
             {reservas.length} resultado{reservas.length !== 1 ? "s" : ""}
             {fecha ? ` para el ${fecha}` : ""}
+            {incluirHistorial && (
+              <span className="ml-2 text-xs font-medium text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full">
+                Historial activo
+              </span>
+            )}
           </p>
         </div>
         <div className="flex gap-2 shrink-0">
@@ -100,19 +107,31 @@ export default async function AdminReservasPage({
           </select>
         </div>
 
-        <div className="flex gap-2">
-          <button
-            type="submit"
-            className="px-4 py-2 bg-blue-700 text-white text-sm font-semibold rounded-lg hover:bg-blue-800 transition-colors"
-          >
-            Filtrar
-          </button>
-          <a
-            href="/admin/reservas"
-            className="px-4 py-2 bg-gray-100 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-200 transition-colors"
-          >
-            Limpiar
-          </a>
+        <div className="flex flex-col gap-3">
+          <label className="flex items-center gap-2 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              name="historial"
+              value="1"
+              defaultChecked={incluirHistorial}
+              className="w-4 h-4 accent-blue-700 rounded border-gray-300"
+            />
+            <span className="text-xs font-medium text-gray-600">Ver historial</span>
+          </label>
+          <div className="flex gap-2">
+            <button
+              type="submit"
+              className="px-4 py-2 bg-blue-700 text-white text-sm font-semibold rounded-lg hover:bg-blue-800 transition-colors"
+            >
+              Filtrar
+            </button>
+            <a
+              href="/admin/reservas"
+              className="px-4 py-2 bg-gray-100 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-200 transition-colors"
+            >
+              Limpiar
+            </a>
+          </div>
         </div>
       </form>
 
@@ -137,7 +156,14 @@ export default async function AdminReservasPage({
               </thead>
               <tbody className="divide-y divide-gray-50">
                 {reservas.map((r) => (
-                  <tr key={r.id} className="hover:bg-gray-50 transition-colors">
+                  <tr
+                    key={r.id}
+                    className={`transition-colors ${
+                      r.estado === "vencida"
+                        ? "opacity-50"
+                        : "hover:bg-gray-50"
+                    }`}
+                  >
                     <td className="px-5 py-4">
                       <div className="flex items-center gap-2">
                         <p className="font-medium text-gray-900">
@@ -190,7 +216,7 @@ export default async function AdminReservasPage({
                       </span>
                     </td>
                     <td className="px-5 py-4">
-                      {r.estado === "cancelada" ? (
+                      {r.estado === "cancelada" || r.estado === "vencida" ? (
                         <EliminarReservaBtn
                           action={eliminarReserva.bind(null, r.id)}
                         />

@@ -107,10 +107,14 @@ export async function getMisReservas(): Promise<ReservaConCancha[]> {
   if (!user) redirect("/auth/login");
 
   const supabase = await createSupabaseServerClient();
+  const today = new Date().toISOString().split("T")[0];
+
   const { data } = await supabase
     .from("reservas")
     .select("*, canchas(nombre, color)")
     .eq("usuario_id", user.id)
+    .gte("fecha", today)
+    .neq("estado", "vencida")
     .order("fecha", { ascending: false })
     .order("hora_inicio", { ascending: true });
 

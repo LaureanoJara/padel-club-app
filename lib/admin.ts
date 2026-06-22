@@ -15,7 +15,7 @@ export type ReservaAdmin = {
   fecha: string;
   hora_inicio: string;
   hora_fin: string;
-  estado: "pendiente" | "confirmada" | "cancelada";
+  estado: "pendiente" | "confirmada" | "cancelada" | "vencida";
   reserva_manual: boolean;
   nombre_visitante: string | null;
   created_at: string;
@@ -68,6 +68,7 @@ export async function getResumenHoy() {
       .select("*, canchas(nombre, color)")
       .eq("fecha", today)
       .neq("estado", "cancelada")
+      .neq("estado", "vencida")
       .order("hora_inicio"),
     supabaseAdmin.from("canchas").select("id").eq("activa", true),
   ]);
@@ -110,15 +111,21 @@ export async function getResumenHoy() {
 
 export async function getTodasLasReservas(
   fecha?: string,
-  canchaId?: string
+  canchaId?: string,
+  incluirHistorial = false
 ): Promise<ReservaAdmin[]> {
   await requireAdmin();
+  const today = new Date().toISOString().split("T")[0];
 
   let query = supabaseAdmin
     .from("reservas")
     .select("*, canchas(nombre, color)")
     .order("fecha", { ascending: false })
     .order("hora_inicio", { ascending: true });
+
+  if (!incluirHistorial) {
+    query = query.gte("fecha", today).neq("estado", "vencida");
+  }
 
   if (fecha) query = query.eq("fecha", fecha);
   if (canchaId) query = query.eq("cancha_id", canchaId);
