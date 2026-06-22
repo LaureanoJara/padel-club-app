@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { supabaseAdmin } from "./supabase-admin";
 import { getSession } from "./auth";
-import type { Cancha } from "@/types";
+import type { Cancha, ColorCancha, EquipamientoItem } from "@/types";
 
 // ─── Tipos ──────────────────────────────────────────────────────────────────
 
@@ -19,7 +19,7 @@ export type ReservaAdmin = {
   reserva_manual: boolean;
   nombre_visitante: string | null;
   created_at: string;
-  canchas: { nombre: string } | null;
+  canchas: { nombre: string; color: ColorCancha } | null;
   perfil_nombre: string;
   usuario_email: string;
 };
@@ -65,7 +65,7 @@ export async function getResumenHoy() {
   const [{ data: reservasHoy }, { data: todasCanchas }] = await Promise.all([
     supabaseAdmin
       .from("reservas")
-      .select("*, canchas(nombre)")
+      .select("*, canchas(nombre, color)")
       .eq("fecha", today)
       .neq("estado", "cancelada")
       .order("hora_inicio"),
@@ -116,7 +116,7 @@ export async function getTodasLasReservas(
 
   let query = supabaseAdmin
     .from("reservas")
-    .select("*, canchas(nombre)")
+    .select("*, canchas(nombre, color)")
     .order("fecha", { ascending: false })
     .order("hora_inicio", { ascending: true });
 
@@ -220,13 +220,14 @@ export async function crearCancha(
   await requireAdmin();
 
   const nombre = (formData.get("nombre") as string)?.trim();
-  const descripcion = (formData.get("descripcion") as string)?.trim() ?? "";
+  const color = (formData.get("color") as string)?.trim();
 
   if (!nombre) return { error: "El nombre de la cancha es requerido." };
+  if (!color) return { error: "Seleccioná un color para la cancha." };
 
   const { error } = await supabaseAdmin.from("canchas").insert({
     nombre,
-    descripcion,
+    color,
     activa: true,
   });
 
@@ -297,6 +298,37 @@ export async function cambiarRolUsuario(
     .eq("id", usuarioId);
 
   revalidatePath("/admin/socios");
+}
+
+// ─── Equipamiento ────────────────────────────────────────────────────────────
+
+export async function getEquipamientoReserva(
+  reservaId: string
+): Promise<EquipamientoItem[]> {
+  await requireAdmin();
+  const { data } = await supabaseAdmin
+    .from("equipamiento_solicitudes")
+    .select("id, item, cantidad, nota")
+    .eq("reserva_id", reservaId)
+    .eq("tipo", "equipamiento");
+  return (data ?? []) as EquipamientoItem[];
+}
+
+export async function getEquipamientoParaReservas(
+  reservaIds: string[]
+): Promise<Record<string, EquipamientoItem[]>> {
+  await requireAdmin();
+  if (!reservaIds.length) return {};
+  const { data } = await supabaseAdmin
+    .from("equipamiento_solicitudes")
+    .select("reserva_id, id, item, cantidad, nota")
+    .in("reserva_id", reservaIds)
+    .eq("tipo", "equipamiento");
+  return (data ?? []).reduce<Record<string, EquipamientoItem[]>>((acc, e) => {
+    if (!acc[e.reserva_id]) acc[e.reserva_id] = [];
+    acc[e.reserva_id].push({ id: e.id, item: e.item, cantidad: e.cantidad, nota: e.nota });
+    return acc;
+  }, {});
 }
 
 // ─── Reservas manuales ───────────────────────────────────────────────────────

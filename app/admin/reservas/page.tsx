@@ -3,9 +3,11 @@ import {
   cancelarReservaAdmin,
   eliminarReserva,
   eliminarReservasCanceladas,
+  getEquipamientoParaReservas,
 } from "@/lib/admin";
 import { getCanchas } from "@/lib/reservas";
 import { EliminarCanceladasBtn, EliminarReservaBtn } from "./DeleteButtons";
+import CanchaColorBadge from "@/components/CanchaColorBadge";
 
 const estadoBadge: Record<string, string> = {
   confirmada: "bg-green-100 text-green-700",
@@ -24,6 +26,8 @@ export default async function AdminReservasPage({
     getTodasLasReservas(fecha, cancha_id),
     getCanchas(),
   ]);
+
+  const equipamientoMap = await getEquipamientoParaReservas(reservas.map((r) => r.id));
 
   const canceladas = reservas.filter((r) => r.estado === "cancelada");
 
@@ -152,7 +156,11 @@ export default async function AdminReservasPage({
                       )}
                     </td>
                     <td className="px-5 py-4 text-gray-700">
-                      {r.canchas?.nombre ?? "—"}
+                      <p>{r.canchas?.nombre ?? "—"}</p>
+                      {/* TODO: insertar aquí miniatura SVG de cancha de pádel */}
+                      {r.canchas?.color && (
+                        <CanchaColorBadge color={r.canchas.color} />
+                      )}
                     </td>
                     <td className="px-5 py-4 text-gray-700">
                       {new Date(r.fecha + "T00:00:00").toLocaleDateString(
@@ -161,7 +169,18 @@ export default async function AdminReservasPage({
                       )}
                     </td>
                     <td className="px-5 py-4 text-gray-700">
-                      {r.hora_inicio.slice(0, 5)} – {r.hora_fin.slice(0, 5)} hs
+                      <span>{r.hora_inicio.slice(0, 5)} – {r.hora_fin.slice(0, 5)} hs</span>
+                      {equipamientoMap[r.id]?.length > 0 && (
+                        <p className="text-xs text-blue-600 mt-0.5">
+                          🎾{" "}
+                          {equipamientoMap[r.id]
+                            .map((e) => {
+                              const label = e.item === "pala" ? "Palas" : "Pelotas";
+                              return `${label} x${e.cantidad}`;
+                            })
+                            .join(" · ")}
+                        </p>
+                      )}
                     </td>
                     <td className="px-5 py-4">
                       <span

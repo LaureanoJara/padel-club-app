@@ -1,10 +1,18 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import { crearCancha } from "@/lib/admin";
+import type { ColorCancha } from "@/types";
+
+const COLORES: { value: ColorCancha; label: string; dot: string }[] = [
+  { value: "azul",    label: "Azul",    dot: "bg-blue-500" },
+  { value: "violeta", label: "Violeta", dot: "bg-purple-500" },
+  { value: "roja",    label: "Roja",    dot: "bg-red-500" },
+];
 
 export default function NuevaCanchaForm() {
   const [state, action, pending] = useActionState(crearCancha, undefined);
+  const [colorSeleccionado, setColorSeleccionado] = useState<ColorCancha | "">("");
 
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
@@ -37,20 +45,29 @@ export default function NuevaCanchaForm() {
         </div>
 
         <div>
-          <label
-            htmlFor="descripcion"
-            className="block text-sm font-medium text-gray-700 mb-1"
-          >
-            Descripción{" "}
-            <span className="text-gray-400 font-normal">(opcional)</span>
-          </label>
-          <input
-            id="descripcion"
-            name="descripcion"
-            type="text"
-            placeholder="Ej: Cancha cubierta con iluminación LED"
-            className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          />
+          <p className="block text-sm font-medium text-gray-700 mb-2">Color</p>
+          <div className="flex gap-3">
+            {COLORES.map((c) => {
+              const seleccionado = colorSeleccionado === c.value;
+              return (
+                <button
+                  key={c.value}
+                  type="button"
+                  onClick={() => setColorSeleccionado(c.value)}
+                  className={`flex items-center gap-2 px-3 py-2 rounded-lg border-2 text-sm font-medium transition-colors
+                    ${seleccionado
+                      ? "border-gray-800 bg-gray-50"
+                      : "border-gray-200 hover:border-gray-400 bg-white"
+                    }`}
+                >
+                  {/* TODO: reemplazar por miniatura SVG de la cancha pintada */}
+                  <span className={`w-4 h-4 rounded-full ${c.dot}`} />
+                  {c.label}
+                </button>
+              );
+            })}
+          </div>
+          <input type="hidden" name="color" value={colorSeleccionado} />
         </div>
 
         <button

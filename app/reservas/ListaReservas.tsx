@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { cancelarReserva } from "@/lib/reservas";
 import ModalConfirmacion from "@/components/ModalConfirmacion";
+import CanchaColorBadge from "@/components/CanchaColorBadge";
 import type { ReservaConCancha } from "@/lib/reservas";
 
 const estadoBadge: Record<string, string> = {
@@ -82,15 +83,32 @@ export default function ListaReservas({
                 ${cancelada ? "opacity-60 border-gray-200" : "border-blue-100"}`}
             >
               <div className={cancelada ? "line-through text-gray-400" : ""}>
-                <p className="font-semibold text-gray-900 text-lg">
-                  {reserva.canchas?.nombre ?? "Cancha"}
-                </p>
+                <div className="flex items-baseline gap-2 flex-wrap">
+                  <p className="font-semibold text-gray-900 text-lg">
+                    {reserva.canchas?.nombre ?? "Cancha"}
+                  </p>
+                  {/* TODO: insertar aquí miniatura SVG de cancha de pádel */}
+                  {reserva.canchas?.color && (
+                    <CanchaColorBadge color={reserva.canchas.color} />
+                  )}
+                </div>
                 <p className="text-gray-500 text-sm mt-0.5 capitalize">
                   {fechaFormateada}
                 </p>
                 <p className="text-blue-700 font-medium text-sm mt-1">
                   {horaInicio} – {horaFin} hs
                 </p>
+                {!cancelada && reserva.equipamiento.length > 0 && (
+                  <p className="text-gray-500 text-xs mt-1.5">
+                    🎾{" "}
+                    {reserva.equipamiento
+                      .map((e) => {
+                        const label = e.item === "pala" ? "Palas" : "Pelotas";
+                        return `${label} x${e.cantidad}`;
+                      })
+                      .join(" · ")}
+                  </p>
+                )}
               </div>
 
               <div className="flex flex-col items-end gap-3 shrink-0">

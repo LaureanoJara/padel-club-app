@@ -1,5 +1,6 @@
 import { getCanchasAdmin, toggleCanchaActiva, eliminarCancha } from "@/lib/admin";
 import NuevaCanchaForm from "./NuevaCanchaForm";
+import CanchaColorBadge from "@/components/CanchaColorBadge";
 
 export default async function AdminCanchasPage() {
   const canchas = await getCanchasAdmin();
@@ -39,11 +40,10 @@ export default async function AdminCanchasPage() {
                       {c.activa ? "Activa" : "Inactiva"}
                     </span>
                   </div>
-                  {c.descripcion && (
-                    <p className="text-sm text-gray-500 mt-0.5 truncate">
-                      {c.descripcion}
-                    </p>
-                  )}
+                  {/* TODO: insertar aquí miniatura SVG de cancha de pádel pintada con c.color */}
+                  <div className="mt-1">
+                    <CanchaColorBadge color={c.color} />
+                  </div>
                   {c.reservas_futuras > 0 && (
                     <p className="text-xs text-orange-600 mt-1">
                       {c.reservas_futuras} reserva

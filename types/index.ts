@@ -1,7 +1,9 @@
+export type ColorCancha = "azul" | "violeta" | "roja";
+
 export interface Cancha {
   id: string;
   nombre: string;
-  descripcion: string;
+  color: ColorCancha;
   activa: boolean;
   created_at: string;
 }
@@ -17,6 +19,13 @@ export interface Reserva {
   reserva_manual: boolean;
   nombre_visitante: string | null;
   created_at: string;
+}
+
+export interface EquipamientoItem {
+  id: string;
+  item: string;
+  cantidad: number;
+  nota: string | null;
 }
 
 export interface Perfil {
