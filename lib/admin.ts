@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { supabaseAdmin } from "./supabase-admin";
 import { getSession } from "./auth";
+import { enviarEmailNotificacion } from "./email";
 import type { Cancha, ColorCancha, EquipamientoItem } from "@/types";
 
 // ─── Tipos ──────────────────────────────────────────────────────────────────
@@ -15,7 +16,7 @@ export type ReservaAdmin = {
   fecha: string;
   hora_inicio: string;
   hora_fin: string;
-  estado: "pendiente" | "confirmada" | "cancelada" | "vencida";
+  estado: "pendiente" | "confirmada" | "cancelada" | "rechazada" | "vencida";
   reserva_manual: boolean;
   nombre_visitante: string | null;
   created_at: string;
@@ -60,7 +61,7 @@ async function requireAdmin() {
 export async function getResumenHoy() {
   await requireAdmin();
 
-  const today = new Date().toISOString().split("T")[0];
+  const today = new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString().split("T")[0];
 
   const [{ data: reservasHoy }, { data: todasCanchas }] = await Promise.all([
     supabaseAdmin
@@ -115,7 +116,7 @@ export async function getTodasLasReservas(
   incluirHistorial = false
 ): Promise<ReservaAdmin[]> {
   await requireAdmin();
-  const today = new Date().toISOString().split("T")[0];
+  const today = new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString().split("T")[0];
 
   let query = supabaseAdmin
     .from("reservas")
@@ -194,12 +195,192 @@ export async function eliminarReservasCanceladas(_formData: FormData) {
   revalidatePath("/admin/reservas");
 }
 
+export async function getConteoReservasPendientes(): Promise<number> {
+  const { count } = await supabaseAdmin
+    .from("reservas")
+    .select("*", { count: "exact", head: true })
+    .eq("estado", "pendiente");
+  return count ?? 0;
+}
+
+async function getEmailDeUsuario(usuarioId: string): Promise<string | null> {
+  const { data } = await supabaseAdmin.auth.admin.getUserById(usuarioId);
+  return data.user?.email ?? null;
+}
+
+export async function confirmarReserva(
+  reservaId: string,
+  _formData: FormData
+) {
+  await requireAdmin();
+
+  const { data: reserva } = await supabaseAdmin
+    .from("reservas")
+    .select("*, canchas(nombre, color)")
+    .eq("id", reservaId)
+    .single();
+
+  if (!reserva || reserva.estado !== "pendiente") return;
+
+  await supabaseAdmin
+    .from("reservas")
+    .update({ estado: "confirmada" })
+    .eq("id", reservaId);
+
+  const horaI = reserva.hora_inicio.slice(0, 5);
+  const horaF = reserva.hora_fin.slice(0, 5);
+  const canchaName = (reserva.canchas as { nombre: string } | null)?.nombre ?? "la cancha";
+
+  if (reserva.usuario_id) {
+    await supabaseAdmin.from("notificaciones").insert({
+      usuario_id: reserva.usuario_id,
+      tipo: "confirmada",
+      titulo: "¡Reserva confirmada!",
+      mensaje: `Tu reserva en ${canchaName} el ${reserva.fecha}, de ${horaI} a ${horaF} hs fue confirmada.`,
+      reserva_id: reservaId,
+    });
+
+    const email = await getEmailDeUsuario(reserva.usuario_id);
+    if (email) {
+      await enviarEmailNotificacion(email, "confirmada", {
+        canchaName,
+        fecha: reserva.fecha,
+        horaInicio: horaI,
+        horaFin: horaF,
+      });
+    }
+  }
+
+  revalidatePath("/admin/reservas");
+}
+
+export async function rechazarReserva(
+  reservaId: string,
+  formData: FormData
+) {
+  await requireAdmin();
+
+  const motivo = ((formData.get("motivo") as string) ?? "").trim() || null;
+
+  const { data: reserva } = await supabaseAdmin
+    .from("reservas")
+    .select("*, canchas(nombre, color)")
+    .eq("id", reservaId)
+    .single();
+
+  if (!reserva || reserva.estado !== "pendiente") return;
+
+  await supabaseAdmin
+    .from("reservas")
+    .update({ estado: "rechazada" })
+    .eq("id", reservaId);
+
+  const horaI = reserva.hora_inicio.slice(0, 5);
+  const horaF = reserva.hora_fin.slice(0, 5);
+  const canchaName = (reserva.canchas as { nombre: string } | null)?.nombre ?? "la cancha";
+
+  if (reserva.usuario_id) {
+    await supabaseAdmin.from("notificaciones").insert({
+      usuario_id: reserva.usuario_id,
+      tipo: "rechazada",
+      titulo: "Reserva no disponible",
+      mensaje: motivo
+        ? `Tu reserva en ${canchaName} el ${reserva.fecha} de ${horaI} a ${horaF} hs no pudo ser confirmada. Motivo: ${motivo}`
+        : `Tu reserva en ${canchaName} el ${reserva.fecha} de ${horaI} a ${horaF} hs no pudo ser confirmada.`,
+      reserva_id: reservaId,
+    });
+
+    const email = await getEmailDeUsuario(reserva.usuario_id);
+    if (email) {
+      await enviarEmailNotificacion(email, "rechazada", {
+        canchaName,
+        fecha: reserva.fecha,
+        horaInicio: horaI,
+        horaFin: horaF,
+        motivo: motivo ?? undefined,
+      });
+    }
+  }
+
+  revalidatePath("/admin/reservas");
+}
+
+export async function proponerAlternativa(
+  reservaId: string,
+  formData: FormData
+) {
+  await requireAdmin();
+
+  const alternativaCanchaId = formData.get("alternativa_cancha_id") as string;
+  const alternativaHoraInicio = formData.get("alternativa_hora_inicio") as string;
+  const mensajeAdmin = ((formData.get("mensaje") as string) ?? "").trim() || null;
+
+  if (!alternativaCanchaId || !alternativaHoraInicio) return;
+
+  // Calcular hora_fin (+1 hora)
+  const [h] = alternativaHoraInicio.split(":");
+  const alternativaHoraFin = `${String(Number(h) + 1).padStart(2, "0")}:00:00`;
+
+  const [{ data: reserva }, { data: canchaAlt }] = await Promise.all([
+    supabaseAdmin
+      .from("reservas")
+      .select("*, canchas(nombre)")
+      .eq("id", reservaId)
+      .single(),
+    supabaseAdmin
+      .from("canchas")
+      .select("nombre")
+      .eq("id", alternativaCanchaId)
+      .single(),
+  ]);
+
+  if (!reserva || reserva.estado !== "pendiente") return;
+
+  const horaI = reserva.hora_inicio.slice(0, 5);
+  const horaF = reserva.hora_fin.slice(0, 5);
+  const canchaOrigName = (reserva.canchas as { nombre: string } | null)?.nombre ?? "la cancha";
+  const canchaAltName = (canchaAlt as { nombre: string } | null)?.nombre ?? "otra cancha";
+  const altHoraI = alternativaHoraInicio.slice(0, 5);
+  const altHoraF = alternativaHoraFin.slice(0, 5);
+
+  if (reserva.usuario_id) {
+    await supabaseAdmin.from("notificaciones").insert({
+      usuario_id: reserva.usuario_id,
+      tipo: "propuesta_alternativa",
+      titulo: "Propuesta alternativa para tu reserva",
+      mensaje: mensajeAdmin
+        ? `El horario que pediste en ${canchaOrigName} no está disponible. Te proponemos ${canchaAltName} de ${altHoraI} a ${altHoraF} hs. Mensaje del club: ${mensajeAdmin}`
+        : `El horario que pediste en ${canchaOrigName} no está disponible. Te proponemos ${canchaAltName} de ${altHoraI} a ${altHoraF} hs.`,
+      reserva_id: reservaId,
+      alternativa_cancha_id: alternativaCanchaId,
+      alternativa_hora_inicio: alternativaHoraInicio,
+      alternativa_hora_fin: alternativaHoraFin,
+    });
+
+    const email = await getEmailDeUsuario(reserva.usuario_id);
+    if (email) {
+      await enviarEmailNotificacion(email, "propuesta_alternativa", {
+        canchaName: canchaOrigName,
+        fecha: reserva.fecha,
+        horaInicio: horaI,
+        horaFin: horaF,
+        alternativaCancha: canchaAltName,
+        alternativaHoraInicio: altHoraI,
+        alternativaHoraFin: altHoraF,
+        mensajeAdmin: mensajeAdmin ?? undefined,
+      });
+    }
+  }
+
+  revalidatePath("/admin/reservas");
+}
+
 // ─── Canchas ─────────────────────────────────────────────────────────────────
 
 export async function getCanchasAdmin(): Promise<CanchaConInfo[]> {
   await requireAdmin();
 
-  const today = new Date().toISOString().split("T")[0];
+  const today = new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString().split("T")[0];
   const { data: canchas } = await supabaseAdmin
     .from("canchas")
     .select("*")

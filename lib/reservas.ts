@@ -11,7 +11,7 @@ export type ReservaConCancha = Reserva & {
   equipamiento: EquipamientoItem[];
 };
 
-export type ReservaState = { error?: string } | undefined;
+export type ReservaState = { error?: string; success?: boolean } | undefined;
 
 export async function getCanchas(): Promise<Cancha[]> {
   const supabase = await createSupabaseServerClient();
@@ -53,6 +53,21 @@ export async function crearReserva(
     return { error: "Seleccioná una cancha, fecha y horario para continuar." };
   }
 
+  const argNow = new Date(Date.now() - 3 * 60 * 60 * 1000); // UTC-3 (Argentina)
+  const today = argNow.toISOString().split("T")[0];
+  if (fecha < today) {
+    return { error: "No podés reservar en una fecha pasada." };
+  }
+  if (fecha === today) {
+    const currentHour = argNow.getUTCHours();
+    const slotHour = parseInt(horaInicio.split(":")[0], 10);
+    if (slotHour <= currentHour) {
+      return {
+        error: `Ese horario ya pasó. Elegí uno a partir de las ${String(currentHour + 1).padStart(2, "0")}:00 hs.`,
+      };
+    }
+  }
+
   const palaCantidad = parseInt((formData.get("pala_cantidad") as string) || "0", 10);
   const pelotaCantidad = parseInt((formData.get("pelota_cantidad") as string) || "0", 10);
   const nota = ((formData.get("equipamiento_nota") as string) || "").trim() || null;
@@ -66,7 +81,7 @@ export async function crearReserva(
       fecha,
       hora_inicio: horaInicio,
       hora_fin: horaFin,
-      estado: "confirmada",
+      estado: "pendiente",
     })
     .select("id")
     .single();
@@ -99,7 +114,7 @@ export async function crearReserva(
     }
   }
 
-  redirect("/reservas");
+  return { success: true };
 }
 
 export async function getMisReservas(): Promise<ReservaConCancha[]> {
@@ -107,7 +122,7 @@ export async function getMisReservas(): Promise<ReservaConCancha[]> {
   if (!user) redirect("/auth/login");
 
   const supabase = await createSupabaseServerClient();
-  const today = new Date().toISOString().split("T")[0];
+  const today = new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString().split("T")[0];
 
   const { data } = await supabase
     .from("reservas")

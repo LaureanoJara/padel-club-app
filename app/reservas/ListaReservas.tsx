@@ -8,8 +8,9 @@ import type { ReservaConCancha } from "@/lib/reservas";
 
 const estadoBadge: Record<string, string> = {
   confirmada: "bg-green-100 text-green-700",
-  pendiente: "bg-yellow-100 text-yellow-700",
-  cancelada: "bg-gray-100 text-gray-500",
+  pendiente:  "bg-yellow-100 text-yellow-700",
+  cancelada:  "bg-gray-100 text-gray-500",
+  rechazada:  "bg-red-100 text-red-600",
 };
 
 type ReservaSeleccionada = {
@@ -64,7 +65,7 @@ export default function ListaReservas({
     <>
       <div className="space-y-4">
         {reservas.map((reserva) => {
-          const cancelada = reserva.estado === "cancelada";
+          const cancelada = reserva.estado === "cancelada" || reserva.estado === "rechazada";
           const horaInicio = reserva.hora_inicio.slice(0, 5);
           const horaFin = reserva.hora_fin.slice(0, 5);
           const fechaFormateada = new Date(

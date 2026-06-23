@@ -40,7 +40,7 @@ export default function ReservaManualForm({ canchas }: { canchas: Cancha[] }) {
     });
   }, [fecha, canchaId]);
 
-  const today = new Date().toISOString().split("T")[0];
+  const today = new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString().split("T")[0];
   const slotsVisibles = fecha && canchaId;
 
   return (

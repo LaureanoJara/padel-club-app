@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useState, useEffect } from "react";
+import Link from "next/link";
 import { crearReserva, getHorariosOcupados } from "@/lib/reservas";
 import CanchaColorBadge from "@/components/CanchaColorBadge";
 import type { Cancha } from "@/types";
@@ -31,8 +32,14 @@ export default function NuevaReservaForm({ canchas }: { canchas: Cancha[] }) {
   const [pelotasChecked, setPelotasChecked] = useState(false);
   const [pelotasCantidad, setPelotasCantidad] = useState(1);
 
+  const argNow = new Date(Date.now() - 3 * 60 * 60 * 1000); // UTC-3 (Argentina)
+  const today = argNow.toISOString().split("T")[0];
+  const fechaEsPasada = fecha !== "" && fecha < today;
+  const fechaEsHoy = fecha === today;
+  const horaActual = fechaEsHoy ? argNow.getUTCHours() : -1;
+
   useEffect(() => {
-    if (!fecha || !canchaId) {
+    if (!fecha || !canchaId || fecha < today) {
       setOccupiedSlots([]);
       setSelectedSlot(null);
       return;
@@ -45,8 +52,28 @@ export default function NuevaReservaForm({ canchas }: { canchas: Cancha[] }) {
     });
   }, [fecha, canchaId]);
 
-  const today = new Date().toISOString().split("T")[0];
-  const slotsVisibles = fecha && canchaId;
+  const slotsVisibles = fecha && canchaId && !fechaEsPasada;
+
+  if (state?.success) {
+    return (
+      <div className="text-center py-8 space-y-5">
+        <div className="text-5xl">✅</div>
+        <div>
+          <h2 className="text-xl font-bold text-gray-900">¡Solicitud enviada!</h2>
+          <p className="text-gray-500 mt-2">
+            El admin confirmará tu reserva a la brevedad.<br />
+            Te notificaremos cuando esté lista.
+          </p>
+        </div>
+        <Link
+          href="/reservas"
+          className="inline-block bg-blue-700 text-white font-semibold px-6 py-3 rounded-full hover:bg-blue-800 transition-colors text-sm"
+        >
+          Ver mis reservas
+        </Link>
+      </div>
+    );
+  }
 
   return (
     <form action={action} className="space-y-7">
@@ -72,8 +99,17 @@ export default function NuevaReservaForm({ canchas }: { canchas: Cancha[] }) {
           min={today}
           value={fecha}
           onChange={(e) => setFecha(e.target.value)}
-          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
+          className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:border-transparent transition
+            ${fechaEsPasada
+              ? "border-red-400 focus:ring-red-400"
+              : "border-gray-300 focus:ring-blue-500"
+            }`}
         />
+        {fechaEsPasada && (
+          <p className="mt-1.5 text-sm text-red-600">
+            La fecha ingresada no es válida.
+          </p>
+        )}
       </div>
 
       {/* Cancha */}
@@ -139,22 +175,25 @@ export default function NuevaReservaForm({ canchas }: { canchas: Cancha[] }) {
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
             {HORARIOS.map((h) => {
+              const slotHour = parseInt(h.inicio.slice(0, 2), 10);
+              const pasado = fechaEsHoy && slotHour <= horaActual;
               const ocupado = occupiedSlots.some((o) =>
                 o.startsWith(h.inicio.slice(0, 5))
               );
+              const noDisponible = pasado || ocupado;
               const seleccionado = selectedSlot?.inicio === h.inicio;
 
               return (
                 <button
                   key={h.inicio}
                   type="button"
-                  disabled={ocupado}
+                  disabled={noDisponible}
                   onClick={() =>
                     setSelectedSlot(seleccionado ? null : { inicio: h.inicio, fin: h.fin })
                   }
                   className={`px-3 py-2.5 rounded-lg text-sm font-medium border transition-colors
                     ${
-                      ocupado
+                      noDisponible
                         ? "bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed line-through"
                         : seleccionado
                         ? "bg-blue-700 text-white border-blue-700 shadow-sm"

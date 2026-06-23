@@ -8,11 +8,13 @@ import {
 import { getCanchas } from "@/lib/reservas";
 import { EliminarCanceladasBtn, EliminarReservaBtn } from "./DeleteButtons";
 import CanchaColorBadge from "@/components/CanchaColorBadge";
+import AccionesPendiente from "./AccionesPendiente";
 
 const estadoBadge: Record<string, string> = {
   confirmada: "bg-green-100 text-green-700",
-  pendiente:  "bg-yellow-100 text-yellow-700",
+  pendiente:  "bg-yellow-100 text-yellow-800",
   cancelada:  "bg-gray-100 text-gray-500",
+  rechazada:  "bg-red-100 text-red-600",
   vencida:    "bg-gray-100 text-gray-400",
 };
 
@@ -159,7 +161,9 @@ export default async function AdminReservasPage({
                   <tr
                     key={r.id}
                     className={`transition-colors ${
-                      r.estado === "vencida"
+                      r.estado === "pendiente"
+                        ? "bg-yellow-50 hover:bg-yellow-100"
+                        : r.estado === "vencida"
                         ? "opacity-50"
                         : "hover:bg-gray-50"
                     }`}
@@ -216,7 +220,14 @@ export default async function AdminReservasPage({
                       </span>
                     </td>
                     <td className="px-5 py-4">
-                      {r.estado === "cancelada" || r.estado === "vencida" ? (
+                      {r.estado === "pendiente" ? (
+                        <AccionesPendiente
+                          reservaId={r.id}
+                          canchas={canchas}
+                        />
+                      ) : r.estado === "cancelada" ||
+                        r.estado === "rechazada" ||
+                        r.estado === "vencida" ? (
                         <EliminarReservaBtn
                           action={eliminarReserva.bind(null, r.id)}
                         />

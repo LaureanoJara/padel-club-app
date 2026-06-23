@@ -3,6 +3,9 @@ import { Geist, Geist_Mono } from "next/font/google";
 import Link from "next/link";
 import "./globals.css";
 import { getSessionWithRol, signOut } from "@/lib/auth";
+import { getConteoNoLeidas } from "@/lib/notificaciones";
+import { getConteoReservasPendientes } from "@/lib/admin";
+import { getAvatarUrl } from "@/lib/perfil";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -29,6 +32,14 @@ export default async function RootLayout({
     user?.user_metadata?.nombre ||
     user?.email?.split("@")[0] ||
     "Usuario";
+
+  const [conteoNotif, conteoPendientes, avatarUrl] = user
+    ? await Promise.all([
+        getConteoNoLeidas(),
+        rol === "admin" ? getConteoReservasPendientes() : Promise.resolve(0),
+        getAvatarUrl(),
+      ])
+    : [0, 0, null];
 
   return (
     <html
@@ -58,12 +69,50 @@ export default async function RootLayout({
                   >
                     Mis Reservas
                   </Link>
+
+                  <Link
+                    href="/perfil"
+                    className="hover:opacity-80 transition-opacity"
+                    title="Mi Perfil"
+                  >
+                    {avatarUrl ? (
+                      <img
+                        src={avatarUrl}
+                        alt="Mi perfil"
+                        className="w-8 h-8 rounded-full object-cover border-2 border-blue-400"
+                      />
+                    ) : (
+                      <span className="hover:text-blue-200 transition-colors">
+                        Mi Perfil
+                      </span>
+                    )}
+                  </Link>
+
+                  {/* Campana de notificaciones */}
+                  <Link
+                    href="/notificaciones"
+                    className="relative hover:text-blue-200 transition-colors"
+                    title="Notificaciones"
+                  >
+                    🔔
+                    {conteoNotif > 0 && (
+                      <span className="absolute -top-1.5 -right-2 flex items-center justify-center w-4 h-4 text-xs font-bold bg-red-500 text-white rounded-full leading-none">
+                        {conteoNotif > 9 ? "9+" : conteoNotif}
+                      </span>
+                    )}
+                  </Link>
+
                   {rol === "admin" && (
                     <Link
                       href="/admin"
-                      className="hover:text-blue-200 transition-colors"
+                      className="relative hover:text-blue-200 transition-colors inline-flex items-center gap-1"
                     >
                       Panel Admin
+                      {conteoPendientes > 0 && (
+                        <span className="inline-flex items-center justify-center w-5 h-5 text-xs font-bold bg-yellow-400 text-yellow-900 rounded-full">
+                          {conteoPendientes}
+                        </span>
+                      )}
                     </Link>
                   )}
                   <span className="text-blue-200 hidden sm:inline">
