@@ -71,6 +71,13 @@ export default async function RootLayout({
                   </Link>
 
                   <Link
+                    href="/socios"
+                    className="hover:text-blue-200 transition-colors"
+                  >
+                    Socios
+                  </Link>
+
+                  <Link
                     href="/perfil"
                     className="hover:opacity-80 transition-opacity"
                     title="Mi Perfil"

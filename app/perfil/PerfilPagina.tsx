@@ -1,8 +1,15 @@
 "use client";
 
 import { useActionState, useState, useEffect } from "react";
-import { actualizarPerfil } from "@/lib/perfil";
-import type { Perfil } from "@/types";
+import Link from "next/link";
+import {
+  actualizarPerfil,
+  enviarSolicitudPareja,
+  cancelarSolicitudPareja,
+  eliminarPareja,
+} from "@/lib/perfil";
+import AvatarCirculo from "@/components/AvatarCirculo";
+import type { Perfil, SocioPublico } from "@/types";
 
 const POSICIONES = [
   { value: "drive", label: "Drive" },
@@ -16,63 +23,63 @@ const POSICION_LABELS: Record<string, string> = {
   ambas: "Ambas",
 };
 
-function AvatarCirculo({
-  url,
-  nombre,
-  size = "lg",
-}: {
-  url?: string | null;
-  nombre?: string | null;
-  size?: "sm" | "lg";
-}) {
-  const dim =
-    size === "lg"
-      ? "w-24 h-24 text-3xl border-4"
-      : "w-8 h-8 text-sm border-2";
+const CATEGORIAS = ["1era", "2da", "3era", "4ta", "5ta", "6ta", "7ma", "8va"] as const;
 
-  if (url) {
-    return (
-      <img
-        src={url}
-        alt="Foto de perfil"
-        className={`${dim} rounded-full object-cover border-white shadow`}
-      />
-    );
-  }
-
-  const inicial = (nombre ?? "U").charAt(0).toUpperCase();
-  return (
-    <div
-      className={`${dim} rounded-full bg-blue-700 flex items-center justify-center text-white font-bold shadow border-white shrink-0`}
-    >
-      {inicial}
-    </div>
-  );
-}
+type ParejaInfo = { id: string; nombre: string; avatar_url: string | null } | null;
 
 export default function PerfilPagina({
   perfil: initialPerfil,
   email,
+  amigos,
+  parejaInfo: initialParejaInfo,
 }: {
   perfil: Perfil | null;
   email: string;
+  amigos: SocioPublico[];
+  parejaInfo: ParejaInfo;
 }) {
   const [modoEdicion, setModoEdicion] = useState(false);
   const [perfilLocal, setPerfilLocal] = useState(initialPerfil);
   const [posicion, setPosicion] = useState(initialPerfil?.posicion ?? "");
+  const [categoria, setCategoria] = useState(initialPerfil?.categoria ?? "");
   const [previewUrl, setPreviewUrl] = useState<string | null>(
     initialPerfil?.avatar_url ?? null
   );
+  const [parejaSeleccionadaId, setParejaSeleccionadaId] = useState("");
+
   const [state, action, pending] = useActionState(actualizarPerfil, undefined);
+  const [stateEnviar, actionEnviarPareja, pendingEnviar] = useActionState(
+    enviarSolicitudPareja,
+    undefined
+  );
+  const [stateCancelar, actionCancelar, pendingCancelar] = useActionState(
+    cancelarSolicitudPareja,
+    undefined
+  );
+  const [stateEliminar, actionEliminar, pendingEliminar] = useActionState(
+    eliminarPareja,
+    undefined
+  );
 
   useEffect(() => {
     if (state?.success && state.perfil) {
       setPerfilLocal(state.perfil);
       setPosicion(state.perfil.posicion ?? "");
+      setCategoria(state.perfil.categoria ?? "");
       setPreviewUrl(state.perfil.avatar_url ?? null);
       setModoEdicion(false);
     }
   }, [state?.success]);
+
+  useEffect(() => {
+    for (const s of [stateEnviar, stateCancelar, stateEliminar]) {
+      if (s?.success && s.perfil) {
+        setPerfilLocal(s.perfil);
+        setParejaSeleccionadaId("");
+        break;
+      }
+    }
+  }, [stateEnviar, stateCancelar, stateEliminar]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -82,6 +89,7 @@ export default function PerfilPagina({
   const handleCancelar = () => {
     setPreviewUrl(perfilLocal?.avatar_url ?? null);
     setPosicion(perfilLocal?.posicion ?? "");
+    setCategoria(perfilLocal?.categoria ?? "");
     setModoEdicion(false);
   };
 
@@ -90,7 +98,12 @@ export default function PerfilPagina({
     perfilLocal?.edad ||
     perfilLocal?.altura ||
     perfilLocal?.posicion ||
-    perfilLocal?.pala;
+    perfilLocal?.pala ||
+    perfilLocal?.categoria;
+
+  const parejaInfoActual: ParejaInfo =
+    amigos.find((a) => a.id === perfilLocal?.pareja_id) ??
+    (perfilLocal?.pareja_id === initialPerfil?.pareja_id ? initialParejaInfo : null);
 
   // ── MODO VISTA ──
   if (!modoEdicion) {
@@ -128,6 +141,12 @@ export default function PerfilPagina({
                   <dd className="text-gray-900 font-medium">{perfilLocal.apodo}</dd>
                 </div>
               )}
+              {perfilLocal?.categoria && (
+                <div className="flex justify-between text-sm">
+                  <dt className="text-gray-500">Categoría</dt>
+                  <dd className="text-gray-900 font-medium">🏆 {perfilLocal.categoria}</dd>
+                </div>
+              )}
               {perfilLocal?.edad && (
                 <div className="flex justify-between text-sm">
                   <dt className="text-gray-500">Edad</dt>
@@ -142,7 +161,7 @@ export default function PerfilPagina({
               )}
               {perfilLocal?.posicion && (
                 <div className="flex justify-between text-sm">
-                  <dt className="text-gray-500">Posición</dt>
+                  <dt className="text-gray-500">Posición de juego</dt>
                   <dd className="text-gray-900 font-medium">
                     {POSICION_LABELS[perfilLocal.posicion]}
                   </dd>
@@ -161,13 +180,34 @@ export default function PerfilPagina({
             </p>
           )}
         </div>
+
+        {perfilLocal?.pareja_estado === "aceptada" && parejaInfoActual && (
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+            <h2 className="text-xs font-semibold text-blue-600 uppercase tracking-widest mb-4">
+              Pareja favorita
+            </h2>
+            <Link
+              href={`/socios/${parejaInfoActual.id}`}
+              className="flex items-center gap-3 hover:bg-gray-50 rounded-xl p-2 -mx-2 transition-colors"
+            >
+              <AvatarCirculo
+                url={parejaInfoActual.avatar_url}
+                nombre={parejaInfoActual.nombre}
+                size="md"
+              />
+              <p className="font-semibold text-gray-900 text-sm">
+                🎾 {parejaInfoActual.nombre}
+              </p>
+            </Link>
+          </div>
+        )}
       </div>
     );
   }
 
   // ── MODO EDICIÓN ──
   return (
-    <div className="max-w-2xl mx-auto px-4 py-12">
+    <div className="max-w-2xl mx-auto px-4 py-12 space-y-6">
       <div className="mb-6">
         <h1 className="text-3xl font-extrabold text-gray-900">Editar perfil</h1>
       </div>
@@ -180,9 +220,7 @@ export default function PerfilPagina({
         )}
 
         <form action={action} encType="multipart/form-data" className="space-y-5">
-          {/* Foto de perfil
-              La imagen se sube a Supabase Storage en el bucket 'avatares',
-              ruta: {userId}/avatar (upsert). */}
+          {/* Foto de perfil */}
           <div className="flex flex-col items-center gap-3 pb-5 border-b border-gray-100">
             <AvatarCirculo url={previewUrl} nombre={perfilLocal?.nombre} size="lg" />
             <label className="cursor-pointer text-sm text-blue-700 font-semibold hover:underline">
@@ -199,10 +237,7 @@ export default function PerfilPagina({
 
           {/* Apodo */}
           <div>
-            <label
-              htmlFor="apodo"
-              className="block text-sm font-medium text-gray-700 mb-1"
-            >
+            <label htmlFor="apodo" className="block text-sm font-medium text-gray-700 mb-1">
               Apodo{" "}
               <span className="text-gray-400 font-normal">(opcional)</span>
             </label>
@@ -216,13 +251,39 @@ export default function PerfilPagina({
             />
           </div>
 
+          {/* Categoría */}
+          <div>
+            <p className="block text-sm font-medium text-gray-700 mb-2">
+              Categoría{" "}
+              <span className="text-gray-400 font-normal">(opcional)</span>
+            </p>
+            <div className="grid grid-cols-4 gap-2">
+              {CATEGORIAS.map((cat) => {
+                const seleccionada = categoria === cat;
+                return (
+                  <button
+                    key={cat}
+                    type="button"
+                    onClick={() => setCategoria(seleccionada ? "" : cat)}
+                    className={`py-2.5 px-2 rounded-lg border-2 text-sm font-medium transition-colors
+                      ${
+                        seleccionada
+                          ? "border-blue-700 bg-blue-50 text-blue-800"
+                          : "border-gray-200 bg-white text-gray-600 hover:border-blue-300"
+                      }`}
+                  >
+                    {cat}
+                  </button>
+                );
+              })}
+            </div>
+            <input type="hidden" name="categoria" value={categoria} />
+          </div>
+
           {/* Edad y Altura */}
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label
-                htmlFor="edad"
-                className="block text-sm font-medium text-gray-700 mb-1"
-              >
+              <label htmlFor="edad" className="block text-sm font-medium text-gray-700 mb-1">
                 Edad
               </label>
               <input
@@ -237,10 +298,7 @@ export default function PerfilPagina({
               />
             </div>
             <div>
-              <label
-                htmlFor="altura"
-                className="block text-sm font-medium text-gray-700 mb-1"
-              >
+              <label htmlFor="altura" className="block text-sm font-medium text-gray-700 mb-1">
                 Altura (m)
               </label>
               <input
@@ -287,13 +345,9 @@ export default function PerfilPagina({
 
           {/* Pala */}
           <div>
-            <label
-              htmlFor="pala"
-              className="block text-sm font-medium text-gray-700 mb-1"
-            >
+            <label htmlFor="pala" className="block text-sm font-medium text-gray-700 mb-1">
               Pala
             </label>
-            {/* TODO: aquí se agregará la foto/imagen de la pala cuando esté disponible */}
             <input
               id="pala"
               name="pala"
@@ -323,6 +377,114 @@ export default function PerfilPagina({
             </button>
           </div>
         </form>
+      </div>
+
+      {/* Sección pareja favorita */}
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+        <h2 className="text-xs font-semibold text-blue-600 uppercase tracking-widest mb-4">
+          Pareja favorita
+        </h2>
+
+        {(stateEnviar?.error || stateCancelar?.error || stateEliminar?.error) && (
+          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm mb-4">
+            {stateEnviar?.error ?? stateCancelar?.error ?? stateEliminar?.error}
+          </div>
+        )}
+
+        {!perfilLocal?.pareja_id && (
+          <div className="space-y-3">
+            <p className="text-sm text-gray-500">
+              Elegí un amigo del club como tu pareja favorita de pádel.
+            </p>
+            {amigos.length === 0 ? (
+              <p className="text-sm text-gray-400 italic">
+                Necesitás tener amigos para elegir una pareja.
+              </p>
+            ) : (
+              <form action={actionEnviarPareja} className="flex gap-2">
+                <select
+                  value={parejaSeleccionadaId}
+                  onChange={(e) => setParejaSeleccionadaId(e.target.value)}
+                  className="flex-1 px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
+                >
+                  <option value="">Elegí un amigo...</option>
+                  {amigos.map((a) => (
+                    <option key={a.id} value={a.id}>
+                      {a.nombre}
+                    </option>
+                  ))}
+                </select>
+                <input type="hidden" name="receptorId" value={parejaSeleccionadaId} />
+                <button
+                  type="submit"
+                  disabled={!parejaSeleccionadaId || pendingEnviar}
+                  className="px-4 py-2.5 bg-blue-700 text-white text-sm font-semibold rounded-lg hover:bg-blue-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors whitespace-nowrap"
+                >
+                  {pendingEnviar ? "Enviando..." : "Enviar solicitud"}
+                </button>
+              </form>
+            )}
+          </div>
+        )}
+
+        {perfilLocal?.pareja_id && perfilLocal.pareja_estado === "pendiente" && (
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              {parejaInfoActual && (
+                <AvatarCirculo
+                  url={parejaInfoActual.avatar_url}
+                  nombre={parejaInfoActual.nombre}
+                  size="sm"
+                />
+              )}
+              <p className="text-sm text-gray-600">
+                <span className="mr-1">⏳</span>
+                Solicitud enviada a{" "}
+                <span className="font-semibold text-gray-900">
+                  {parejaInfoActual?.nombre ?? "…"}
+                </span>
+              </p>
+            </div>
+            <form action={actionCancelar}>
+              <button
+                type="submit"
+                disabled={pendingCancelar}
+                className="text-xs text-gray-400 hover:text-red-500 disabled:opacity-50 transition-colors whitespace-nowrap"
+              >
+                {pendingCancelar ? "Cancelando..." : "Cancelar solicitud"}
+              </button>
+            </form>
+          </div>
+        )}
+
+        {perfilLocal?.pareja_id && perfilLocal.pareja_estado === "aceptada" && (
+          <div className="flex items-center justify-between gap-3">
+            <Link
+              href={`/socios/${perfilLocal.pareja_id}`}
+              className="flex items-center gap-3 hover:opacity-80 transition-opacity"
+            >
+              {parejaInfoActual && (
+                <AvatarCirculo
+                  url={parejaInfoActual.avatar_url}
+                  nombre={parejaInfoActual.nombre}
+                  size="sm"
+                />
+              )}
+              <p className="font-semibold text-gray-900 text-sm">
+                🎾 {parejaInfoActual?.nombre ?? "…"}
+              </p>
+            </Link>
+            <form action={actionEliminar}>
+              <button
+                type="submit"
+                disabled={pendingEliminar}
+                className="text-xs text-gray-400 hover:text-red-500 disabled:opacity-50 transition-colors whitespace-nowrap"
+              >
+                {pendingEliminar ? "Eliminando..." : "Eliminar pareja"}
+              </button>
+            </form>
+          </div>
+        )}
       </div>
     </div>
   );
